@@ -11,7 +11,6 @@ import dblib
 import configparser
 import argparse
 import os
-
 ####################### CMD-PARSER-SETTINGS ########################
 def get_parser():
     parser = argparse.ArgumentParser(description="You can choose between different dbTools")
