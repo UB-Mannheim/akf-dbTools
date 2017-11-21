@@ -1,5 +1,5 @@
 __all__ = [
-    "akf-refGetter","akf-kennGetter",
+    "akf_refGetter","akf_kennGetter",
     ]
 
 ################################################################

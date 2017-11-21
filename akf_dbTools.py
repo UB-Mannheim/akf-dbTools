@@ -7,7 +7,8 @@
 # Date:     **14.11.2017**
 
 ######### IMPORT ############
-import akf-dbToolslib as akfdblib
+import akf_dbToolslib as akfdblib
+import stuff
 import configparser
 import argparse
 import os
