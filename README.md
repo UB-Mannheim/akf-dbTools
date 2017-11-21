@@ -1,4 +1,4 @@
-![akf-dbTools](doc/img/Tools.PNG)
+![akf-dbTools](doc/img/Tools.png)
 ========================
 
 Overview
