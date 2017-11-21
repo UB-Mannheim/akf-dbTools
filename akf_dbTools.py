@@ -11,14 +11,15 @@ import dblib.kennGetter as kennGetter
 import dblib.refGetter as refGetter
 import configparser
 import argparse
+import textwrap
 import os
 ####################### CMD-PARSER-SETTINGS ########################
 def get_parser():
-    parser = argparse.ArgumentParser(description="You can choose between different dbTools:\n"
+    parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,description=textwrap.dedent("You can choose between different dbTools:\n"
                                                  "refGetter: Get all Years of the same referenz and write it to 'Jahresspanne'.\n"
-                                                 "kennGetter: Get all the WKN/ISIN of the same referenz and write it to 'Kennnummer'.\n")
+                                                 "kennGetter: Get all the WKN/ISIN of the same referenz and write it to 'Kennnummer'.\n"))
     parser.add_argument("--input", type=str,default="",help='Input db directory or type it into the config file.')
-    parser.add_argument("--tool", type=str, choices=[0, 1], default=0,
+    parser.add_argument("--tool", type=str, choices=[0, 1], default=1,
                         help='Choose the tool(0:ref-Getter, 1:kennGetter), default: %(default)s')
     args = parser.parse_args()
     return args
@@ -29,8 +30,7 @@ if __name__ == "__main__":
     Entrypoint: Searches for the files and parse them into the mainfunction (can be multiprocessed)
     """
     args = get_parser()
-    dbPath = os.path.abspath(args.input)#
-    asdf = args.tool
+    dbPath = os.path.abspath(args.input)
     if args.input == "":
         # The filespath are stored in the config.ini file.
         # And can be changed there.

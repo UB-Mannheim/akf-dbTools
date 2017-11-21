@@ -11,7 +11,7 @@ from sqlalchemy import create_engine, MetaData, select
 import configparser
 ################ START ################
 
-def akf_kenngetter(dbPath: str) -> int:
+def akf_kenngetter(dbPath):
     """
     Main function of the akf-kennGetter!
     """

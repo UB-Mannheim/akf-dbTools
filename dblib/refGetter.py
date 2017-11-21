@@ -11,7 +11,7 @@ from sqlalchemy import create_engine, MetaData, select
 import configparser
 ################ START ################
 
-def get_pretty_dates(dates: list)->str:
+def get_pretty_dates(dates):
     """
     It takes alle the years
     and pretty printed it.
@@ -34,7 +34,7 @@ def get_pretty_dates(dates: list)->str:
         last = date
     return pretty_date
 
-def akf_refgetter(dbPath: str) -> int:
+def akf_refgetter(dbPath):
     """
     Main function of the AKF_RefGetter!
     """
