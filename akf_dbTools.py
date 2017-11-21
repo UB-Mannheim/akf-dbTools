@@ -7,91 +7,38 @@
 # Date:     **14.11.2017**
 
 ######### IMPORT ############
-import akf-kennGetter
-import akf-refGetter
+import akf-dbToolslib as akfdblib
 import configparser
+import argparse
+import os
+
+####################### CMD-PARSER-SETTINGS ########################
+def get_parser():
+    parser = argparse.ArgumentParser(description="You can choose between different dbTools")
+    parser.add_argument("--input", type=str,default="",help='Input db directory or type it into the config file.')
+    parser.add_argument("--tool", type=str, choices=[0, 1], default=0,
+                        help='Choose the tool(0:ref-Getter, 1:kennGetter), default: %(default)s')
+    args = parser.parse_args()
+    return args
+
 ################ START ################
-
-def get_pretty_dates(dates: list)->str:
-    """
-    It takes alle the years
-    and pretty printed it.
-    E.g. 2001,2002,2003,2004 -> 2001-2004
-    """
-    pretty_date = str(dates[0])+"-"
-    last = dates[0]
-    for idx, date in enumerate(dates[1:]):
-        if (date-1 == last):
-            if idx == len(dates) - 2:
-                pretty_date = pretty_date + str(date)
-        else:
-            if idx == len(dates) - 2:
-                pretty_date = pretty_date+str(dates[idx])+", "+str(date)
-            else:
-                if int(pretty_date[-5:-1]) == dates[idx]:
-                    pretty_date = pretty_date[:-1]+", " + str(date) + "-"
-                else:
-                    pretty_date = pretty_date + str(dates[idx]) + ", " + str(date) + "-"
-        last = date
-    return pretty_date
-
-def akf_refgetter(dbPath: str) -> int:
-    """
-    Main function of the AKF_RefGetter!
-    """
-    print("Start RefGetter")
-    #Connection to SQLite
-    db_akf = dbPath
-    engine = create_engine(db_akf)
-    conn = engine.connect()
-
-    # Create a MetaData instance
-    metadata = MetaData(bind=engine, reflect=True)
-
-    # Get all the referenz values
-    s = select([metadata.tables['Main'].c.referenz])
-    result = conn.execute(s)
-    mainresults = result.fetchall()
-    # Get all the years which are bind to the referenz
-    for ref in mainresults:
-        s = select([metadata.tables['MainRelation']]).where(metadata.tables['MainRelation'].c.referenz == ref[0])
-        dates = []
-        try:
-            result = conn.execute(s)
-            mainrelationresults = result.fetchall()
-            for date in mainrelationresults:
-                if isinstance(date[3], int):
-                    dates.append(date[3])
-                else:
-                    dates.append(int(date[3][:4]))
-            dates = sorted(list(set(dates)))
-            if not dates: continue
-            pretty_dates = dates[0]
-            if len(dates)>2:
-                pretty_dates = get_pretty_dates(dates)
-            elif len(dates) == 2:
-                pretty_dates = str(dates[0])+"-"+str(dates[1])
-            print(pretty_dates)
-
-            stmt = metadata.tables['Main'].update().values(Jahresspanne=pretty_dates).where(
-                metadata.tables['Main'].c.referenz == ref[0])
-            conn.execute(stmt)
-        except:
-            continue
-    conn.close()
-    engine.dispose()
-    return 0
-
 if __name__ == "__main__":
     """
     Entrypoint: Searches for the files and parse them into the mainfunction (can be multiprocessed)
     """
-    # The filespath are stored in the config.ini file.
-    # And can be changed there.
-    config = configparser.ConfigParser()
-    config.sections()
-    config.read('config.ini')
-    # For later use to iterate over all dir
-    dbPath = config['DEFAULT']['DBPath']
-    akf_refgetter(dbPath)
+    args = get_parser()
+    dbPath = os.path.abspath(args.input)
+    if dbPath == "":
+        # The filespath are stored in the config.ini file.
+        # And can be changed there.
+        config = configparser.ConfigParser()
+        config.sections()
+        config.read('./akf-dbToolslib/config.ini')
+        # For later use to iterate over all dir
+        dbPath = config['DEFAULT']['DBPath']
+    options = {
+        1: akfdblib.akf_refgetterr,
+        2: akfdblib.akf_kenngetter,
+    }
+    options[args.tool](dbPath)
     print("Finished!")
