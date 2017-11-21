@@ -15,9 +15,11 @@ import textwrap
 import os
 ####################### CMD-PARSER-SETTINGS ########################
 def get_parser():
-    parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,description=textwrap.dedent("You can choose between different dbTools:\n"
-                                                 "refGetter: Get all Years of the same referenz and write it to 'Jahresspanne'.\n"
-                                                 "kennGetter: Get all the WKN/ISIN of the same referenz and write it to 'Kennnummer'.\n"))
+    parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,description=textwrap.dedent("You can choose between different dbTools:\n\n"
+                                                 "refGetter(0):\n"
+                                                 "Get all Years of the same referenz and write it to 'Jahresspanne'.\n\n"
+                                                 "kennGetter(1):\n"
+                                                 "Get all the WKN/ISIN of the same referenz and write it to 'Kennnummer'.\n"))
     parser.add_argument("--input", type=str,default="",help='Input db directory or type it into the config file.')
     parser.add_argument("--tool", type=str, choices=[0, 1], default=1,
                         help='Choose the tool(0:ref-Getter, 1:kennGetter), default: %(default)s')
