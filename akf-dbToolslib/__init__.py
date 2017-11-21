@@ -6,5 +6,5 @@ __all__ = [
 ### top level imports
 ################################################################
 
-import akf-refGetter
-import akf-kennGetter
+import akf_refGetter
+import akf_kennGetter
