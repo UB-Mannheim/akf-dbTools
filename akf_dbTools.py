@@ -7,8 +7,7 @@
 # Date:     **14.11.2017**
 
 ######### IMPORT ############
-import akf_dbToolslib as akfdblib
-import stuff
+import dblib
 import configparser
 import argparse
 import os
@@ -38,8 +37,8 @@ if __name__ == "__main__":
         # For later use to iterate over all dir
         dbPath = config['DEFAULT']['DBPath']
     options = {
-        1: akfdblib.akf_refgetterr,
-        2: akfdblib.akf_kenngetter,
+        1: dblib.akf_refgetterr,
+        2: dblib.akf_kenngetter,
     }
     options[args.tool](dbPath)
     print("Finished!")
