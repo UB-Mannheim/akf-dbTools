@@ -32,14 +32,18 @@ Tool description
 At the moment the program contains two different tools:
 
 #### json2sqlite for books  
-It parses the json information, which are gained from the books,
+It parses the json information, 
+which are gained from the books,
 to the sqlite database.
-RefGetter and KennGetter are not necessary to use afterwards.
+*RefGetter* and *KennGetter* 
+are *not* necessary to use afterwards.
 
 #### json2sqlite for cds  
-It parses the json information, which are gained from the cds,
+It parses the json information, 
+which are gained from the cds,
 to the sqlite database.
-RefGetter and KennGetter are necessary to use afterwards.
+*RefGetter* and *KennGetter* 
+are necessary to use afterwards.
 
 #### RefGetter  
 It gets the 'referenz' values, reads all years which  
