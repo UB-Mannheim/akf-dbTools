@@ -25,7 +25,8 @@ def get_parser():
                                                  "Get all Years of the same referenz and write it to 'Jahresspanne'.\n\n"
                                                  "kennGetter(3):\n"
                                                  "Get all the WKN/ISIN of the same referenz and write it to 'Kennnummer'.\n"))
-    parser.add_argument("--input", type=str,default="",help='Input db directory or type it into the config file.')
+    parser.add_argument("--db", type=str,default="",help='Input db directory or type it into the config file.')
+    parser.add_argument("--files", type=str, default="", help='Input input file directory or type it into the config file.')
     parser.add_argument("--tool", type=str, choices=[0, 1, 2, 3], default=0,
                         help='Choose the tool(1:json2sqlite for books, 1:json2sqlite for cds,3:ref-Getter, 3:kennGetter), default: %(default)s')
     args = parser.parse_args()
@@ -36,15 +37,14 @@ if __name__ == "__main__":
     """
     Entrypoint: Searches for the files and parse them into the mainfunction (can be multiprocessed)
     """
-    args = get_parser()
     config = configparser.ConfigParser()
     config.sections()
     config.read('./dblib/config.ini')
-    if args.input == "":
-        # The filespath are stored in the config.ini file.
-        # And can be changed there.
-        # For later use to iterate over all dir
-        config['DEFAULT']['DBPath'] = args.input
+    args = get_parser()
+    if args.db == "":
+        config['DEFAULT']['DBPath'] = args.db
+    if args.files == "":
+        config['DEFAULT']['DBPath'] = args.files
     tools = {
         0: json2sqlite.book,
         1: json2sqlite.cd,
