@@ -18,11 +18,9 @@ Running
 Example:
 
     # perform KennGetter-Tool
-    $ python ./akf_dbTools.py --input "./db.sqlite" --tools 0 
+    $ python ./akf_dbTools.py --input "./db.sqlite" --tools 3 
 
-This will create a directory "out/..." containing all cropped
-segments and debug outputs. And a subdirectory "spliced/.."
-containing the final spliced image.
+This will perform the KennGetter-Option on a database called "db".
 
     # See --help for more informations
     $ python ./akf_dbTools.py --help
