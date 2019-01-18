@@ -457,7 +457,7 @@ def Boersennotiztable(conn, new_data, table):
         if len(notes) > 1:
             notes = notes[0].upper() + notes[1:]
         maerktelist = []
-        with open("C:\\Coding\\AKF_SQL_DBTalk\\utils\\Maerkte","r", encoding="utf-8") as f:
+        with open("./dblib/Maerkte","r", encoding="utf-8") as f:
             for line in f.readlines():
                 if line.strip() in notes:
                     maerktelist.append(line.strip())
@@ -698,15 +698,6 @@ def Kapitalarttable(conn, new_data, table):
     del_entry(new_data['compare'], [],
               ['genehmigtesKapital', 'bedingtesKapital', 'besBezugsrechte', 'ermächtigungAktienerwerb',
                'bedingtesKapital2'])
-    # TODO-Hint: Obsolete? The information are in "WeitereBemerkungen"
-    # if 'grundkapital' in new_data:
-    #     if new_data['grundkapital']:
-    #         text = ""
-    #         if "bemerkungen" in new_data['grundkapital']:
-    #             for entry in new_data['grundkapital']["bemerkungen"]:
-    #                 text += " ".join(entry) + " "
-    #         entries.append({'betrag': new_data['grundkapital']['betrag'], 'bemerkung': text})
-    #         entry_names.append('Grundkapital')
     if 'genehmigtesKapital' in new_data:
         if new_data['genehmigtesKapital']:
             entries.append(new_data['genehmigtesKapital']['genehmKapital'])
@@ -852,8 +843,6 @@ def Kennzahlentable(conn, new_data, table):
                 except Exception:
                     pass
                 unit, currency = "", ""
-                # TODO-Hint: Obsolete information?
-                #comment = " ".join(new_data['boersenbewertung'][boerse]['notizen_kennzahlen'])
                 comment = ""
                 if isinstance(new_data['boersenbewertung'][boerse]['notizen_kennzahlen'], list):
                     if "in" in new_data['boersenbewertung'][boerse]['notizen_kennzahlen'][-1]:
@@ -1052,9 +1041,8 @@ def Unternehmentable(conn, new_data, table):
     if "unternehmensVertraege" in new_data:
         comment = "Unternehmnensverträge: "+" | ".join(new_data["unternehmensVertraege"])
     entry_check(new_data, ['established_year', 'activity_description'])
-    #TODO-Hint: RANDOM in unternehmenid is now obsolete!
     conn.execute(table.insert(), [
-        {'unternehmenId': new_data['unternehmenId'], #+str(random.randint(1,1000))
+        {'unternehmenId': new_data['unternehmenId'],
          'Unternehmen': new_data['name'],
          'Stammdaten': SD,
          'Taetigkeitsgebiet': new_data['activity_description'],
@@ -1073,6 +1061,7 @@ def Unternehmentable(conn, new_data, table):
 
 def Volumetable(conn, new_data, table):
     print(table.columns.keys())
+    #TODO: For cds not necassary
     return 0
     for idx, entry in enumerate(new_data['all_wkn_entry']):
         conn.execute(table.insert(), [
@@ -1134,8 +1123,6 @@ def WKNtable(conn, new_data, table):
         if entry['nw'] != "":
             comment = (comment + " Nennwert: " + entry['nw']).strip()
         if entry['wkn']+entry['isin'] != "":
-            # if entry['wkn'] == "":
-            #     entry['wkn'] = entry['isin']+"(ISIN)"
             conn.execute(table.insert(), [
                 {'unternehmenId': new_data['unternehmenId'],
                  'Unternehmen': new_data['name'],
@@ -1300,10 +1287,6 @@ def get_shareinfo(new_data):
     shareinfolist = []
     if 'grundkapital' in new_data:
         max_entries = max([len(new_data['stückelung']),len(new_data['stimmrecht'])])
-        # Obsolete
-        #if len(new_data['stückelung']) != len(new_data['stimmrecht']):
-        #
-        #if max_entries == 1: new_data['grundkapital']['bemerkungen'][0][0] = new_data['grundkapital']['betrag']+ " " + new_data['grundkapital']['bemerkungen'][0][0]
         if max_entries > 1:
             new_data['grundkapital']['bemerkungen'].append([new_data['grundkapital']['betrag'],"Grundkapital"])
         # TODO-Hint: Search here if something smells fishy!
