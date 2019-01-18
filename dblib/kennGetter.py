@@ -11,12 +11,13 @@ from sqlalchemy import create_engine, MetaData, select
 import configparser
 ################ START ################
 
-def akf_kenngetter(dbPath):
+def akf_kenngetter(config):
     """
     Main function of the akf-kennGetter!
     """
     print("Start kennGetter")
     #Connection to SQLite
+    dbPath = config['DEFAULT']['DBPath']
     db_akf = dbPath
     engine = create_engine(db_akf)
     conn = engine.connect()
@@ -63,7 +64,5 @@ if __name__ == "__main__":
     config = configparser.ConfigParser()
     config.sections()
     config.read('config.ini')
-    # For later use to iterate over all dir
-    dbPath = config['DEFAULT']['DBPath']
-    akf_kenngetter(dbPath)
+    akf_kenngetter(config)
     print("Finished!")

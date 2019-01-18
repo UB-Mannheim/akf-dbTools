@@ -34,12 +34,13 @@ def get_pretty_dates(dates):
         last = date
     return pretty_date
 
-def akf_refgetter(dbPath):
+def akf_refgetter(config):
     """
     Main function of the AKF_RefGetter!
     """
     print("Start RefGetter")
     #Connection to SQLite
+    dbPath = config['DEFAULT']['DBPath']
     db_akf = dbPath
     engine = create_engine(db_akf)
     conn = engine.connect()
@@ -90,7 +91,5 @@ if __name__ == "__main__":
     config = configparser.ConfigParser()
     config.sections()
     config.read('config.ini')
-    # For later use to iterate over all dir
-    dbPath = config['DEFAULT']['DBPath']
-    akf_refgetter(dbPath)
+    akf_refgetter(config)
     print("Finished!")
