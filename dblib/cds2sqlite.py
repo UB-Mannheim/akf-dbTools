@@ -23,6 +23,7 @@ from copy import deepcopy
 import glob
 from functools import wraps
 import time, timeit
+import re
 # Obsolete modules
 # import random
 
@@ -75,6 +76,7 @@ def Aktienkursetable(conn, new_data, table):
     if 'boersenbewertung' not in new_data: return 0
     for boerse in new_data['boersenbewertung']:
         if 'kurse' not in new_data['boersenbewertung'][boerse]: continue
+        idx = 1
         for idxx, block in enumerate(new_data['boersenbewertung'][boerse]['kurse']):
             del_entry(new_data['compare'], ['boersenbewertung', boerse, 'kurse', idxx],
                       ['jahr', "hoechst", "tiefst", "ultimo", "kommentar"])
@@ -89,7 +91,7 @@ def Aktienkursetable(conn, new_data, table):
             year = year.split(" ")[0]
             notes = new_data['boersenbewertung'][boerse]['notiz_bereinigteKurse']
             comment = replace_geminfo(block['jahr'], new_data['boersenbewertung'][boerse],'notiz_bereinigteKurse')
-            for idx, entry in enumerate(blockkey):
+            for entry in blockkey:
                 del_entry(new_data['compare'], [], ['year'])
                 amount = block[entry]
                 if "," in amount and amount.index(",") == 0:
@@ -106,8 +108,9 @@ def Aktienkursetable(conn, new_data, table):
                      'Bemerkung': comment,
                      'BemerkungAbschnitt': "",
                      'Abschnitt': "",
-                     'Rang': idx + 1,
+                     'Rang': idx,
                      }])
+                idx+=1
     return 0
 
 
@@ -131,6 +134,9 @@ def Aktionaertable(conn, new_data, table):
                         comment = " ".join(entry["bemerkungen"])
                     if 'name' in entry:
                         entry['beteiliger'] = entry['name']
+                    if not entry["ort"].strip()[0].isupper():
+                        comment = " Info: " + entry['ort'] + " " + comment
+                        entry['ort'] = ""
                     pwords = ["u.", "%", "über", "ca.", "Kdt.", "Inc.", "dir."]
                     for word in pwords:
                         if word in entry['ort']:
@@ -292,6 +298,7 @@ def BilanzAktivatable(conn, new_data, table):
     print(table.columns.keys())
     if 'ausBilanzen' not in new_data: return 0
     uinfo = "The amount was considered to low to name it. "
+    indx=1
     for ct, _ in enumerate(new_data['ausBilanzen']):
         for idx, block in enumerate(new_data['ausBilanzen'][ct]['ausBilanzen']):
             if 'aktiva' in block.lower():
@@ -330,8 +337,9 @@ def BilanzAktivatable(conn, new_data, table):
                              'Betrag': entries[entry].replace(' ', "").replace(" ", ""),
                              'Bemerkung': comment,
                              'BemerkungAbschnitt': "",
-                             'Rang': idxx + 1,
+                             'Rang': indx,
                              }])
+                        indx+=1
                 break
             if "u =" in block.lower():
                 uinfo = block
@@ -342,6 +350,7 @@ def BilanzPassivatable(conn, new_data, table):
     print(table.columns.keys())
     if 'ausBilanzen' not in new_data: return 0
     uinfo = "The amount was considered to low to name it. "
+    indx=1
     for ct, _ in enumerate(new_data['ausBilanzen']):
         for idx, block in enumerate(new_data['ausBilanzen'][ct]['ausBilanzen']):
             if 'passiva' in block.lower():
@@ -380,8 +389,9 @@ def BilanzPassivatable(conn, new_data, table):
                              'Betrag': entries[entry].replace(' ', "").replace(" ", ""),
                              'Bemerkung': comment,
                              'BemerkungAbschnitt': "",
-                             'Rang': idxx + 1,
+                             'Rang': indx,
                              }])
+                        indx+=1
                 break
             if "u =" in block.lower():
                 uinfo = block
@@ -392,6 +402,7 @@ def BilanzSummetable(conn, new_data, table):
     print(table.columns.keys())
     if 'ausBilanzen' not in new_data: return 0
     uinfo = "The amount was considered to low to name it. "
+    indx = 1
     for ct, _ in enumerate(new_data['ausBilanzen']):
         for idx, block in enumerate(new_data['ausBilanzen'][ct]['ausBilanzen']):
             if 'bilanzsumme' in block.lower():
@@ -430,8 +441,9 @@ def BilanzSummetable(conn, new_data, table):
                              'Betrag': entries[entry].replace(' ', "").replace(" ", ""),
                              'Bemerkung': comment,
                              'BemerkungAbschnitt': "",
-                             'Rang': idxx + 1,
+                             'Rang': indx,
                              }])
+                        indx+=1
                 break
             if "u =" in block.lower():
                 uinfo = block
@@ -583,14 +595,14 @@ def Geschaeftsjahrtable(conn, new_data, table):
     for entry in new_data['sonstigeAngaben']:
         if entry[0].find('jahr') != -1:
             GJ = " ".join(entry[1:])
-    if len(GJ.split("-")) > 1:
-        GJA = GJ.split("-")[0]
-        GJE = GJ.split("-")[1]
+    if len(GJ.split("-")) == 2:
+        GJA = "".join([char for char in GJ.split("-")[0] if not char.isalpha()])
+        GJE = "".join([char for char in GJ.split("-")[1] if not char.isalpha()])
         GJ = ""
-    if "Kalenderjahr" in GJA:
+    if "Kalenderjahr" in GJ or "Kalenderjahr" in GJA:
         KJ = "1"
-        GJ += "Kalenderjahr"
-        GJA = GJA.replace("Kalenderjahr", "")
+        GJ = "Kalenderjahr"
+        #GJA = GJA.replace("Kalenderjahr", "")
     if not "".join([GJ,GJA,GJE]) == "":
         conn.execute(table.insert(), [
             {'unternehmenId': new_data['unternehmenId'],
@@ -628,6 +640,9 @@ def Grundkapitaltable(conn, new_data, table):
     del_entry(new_data['compare'], [], ['grundkapital'])
     for idx, entry in enumerate(new_data["shareinfo"]):
         if (entry['amount']+entry['currency']+entry['info']).strip() == "":continue
+        if entry["amount"] != "" and entry["amount"].strip()[0].isalpha():
+            entry["info"] = entry["amount"]+" "+entry["info"]
+            entry["amount"] = ""
         conn.execute(table.insert(), [
             {'unternehmenId': new_data['unternehmenId'],
              'Hoehe': entry['amount'],
@@ -646,6 +661,7 @@ def GuVtable(conn, new_data, table):
         new_data['ausGewinnUndVerlust'][0] = deepcopy(new_data['ausGewinnUndVerlust'])
         for _ in del_keys:
             del new_data['ausGewinnUndVerlust'][_]
+    idx = 1
     for ct, _ in enumerate(new_data['ausGewinnUndVerlust']):
         if 'ausGewinnUndVerlustRechnung' not in new_data['ausGewinnUndVerlust'][ct]: continue
         for block in new_data['ausGewinnUndVerlust'][ct]['ausGewinnUndVerlustRechnung']:
@@ -661,8 +677,7 @@ def GuVtable(conn, new_data, table):
             if "*" in year:
                 year = year.split("*")[0]
             lvalidpos = ""
-            offset = 0
-            for idx, entry in enumerate(blockkey):
+            for entry in blockkey:
                 comment = replace_geminfo(block['jahr'], new_data['ausGewinnUndVerlust'][ct], 'notizen')
                 pos = ""
                 if block[entry].upper() == "U":
@@ -684,10 +699,9 @@ def GuVtable(conn, new_data, table):
                          'Betrag': block[entry].replace(' ', "").replace(" ", ""),
                          'Bemerkung': comment,
                          'BemerkungAbschnitt': "",
-                         'Rang': idx + 1-offset,
+                         'Rang': idx,
                          }])
-                else:
-                    offset += 1
+                    idx+=1
     return 0
 
 
@@ -763,12 +777,19 @@ def Kapitalarttable(conn, new_data, table):
             currency, amount = "", ""
             if entry['betrag'] != "":
                 currency = entry['betrag'].translate(str.maketrans('', '', string.punctuation + string.digits)).strip()
-                amount = entry['betrag']
-                for feat in currency.split():
-                    if feat.strip() in ["Mio","Mrd","Tsd","Brd"]:
-                        currency = currency.replace(feat, '')
-                    else:
-                        amount = amount.replace(feat, '')
+                amount = "".join([char for char in entry['betrag'] if char.isdigt() or char in [".,-"]])
+                #for feat in currency.split():
+                #    if feat.strip() in ["Mio","Mrd","Tsd","Brd"]:
+                #        currency = currency.replace(feat, '')
+                #    else:
+                #       amount = amount.replace(feat, '')
+            #TODO: Experimental!!
+            if currency+amount == "":
+                scomment = entry["bemerkung"].split(" ")
+                if len(scomment)> 2:
+                    if scomment[1][0].isdigit():
+                        currency = scomment[0]
+                        amount = scomment[1]
             conn.execute(table.insert(), [
                 {'unternehmenId': new_data['unternehmenId'],
                  'Kapitalart': entry_names[idx],
@@ -784,9 +805,10 @@ def Kapitalentwicklungtable(conn, new_data, table):
     print(table.columns.keys())
     if 'kapitalEntwicklung' not in new_data: return 0
     del_entry(new_data['compare'], [], ['kapitalEntwicklung'])
+    idx=1
     for entries in new_data['kapitalEntwicklung']:
         if not 'eintraege' in entries: continue
-        for idx, entry in enumerate(entries['eintraege']):
+        for entry in entries['eintraege']:
             entry_check(entry, ['jahr', 'art', 'text', 'betrag'])
             if isinstance(entry['text'],str):
                 text = entry['text']
@@ -798,10 +820,11 @@ def Kapitalentwicklungtable(conn, new_data, table):
                      'Jahr': entries['jahr'],
                      'Text': "Art: " + entry['art'] + ", Kapital: " + entry['betrag'] + ", Info: " + text,
                      'Bemerkung': "Kapital",
-                     'Rang': idx + 1,
+                     'Rang': idx,
                      }])
+                idx+=1
     if 'entwicklungDesGenusKapitals' not in new_data: return 0
-    for idx, entry in enumerate(new_data['entwicklungDesGenusKapitals']):
+    for entry in new_data['entwicklungDesGenusKapitals']:
             entry_check(entry, ['jahr', 'text'])
             if isinstance(entry['text'],str):
                 text = entry['text']
@@ -812,8 +835,9 @@ def Kapitalentwicklungtable(conn, new_data, table):
                  'Jahr': entry['jahr'],
                  'Text': text,
                  'Bemerkung': "Genußkapital",
-                 'Rang': idx + 1,
+                 'Rang': idx,
                  }])
+            idx+=1
     return 0
 
 
@@ -972,33 +996,96 @@ def Stimmrechttable(conn, new_data, table):
     if "shareinfo" not in new_data: return 0
     for idx, entry in enumerate(new_data["shareinfo"]):
         if entry["voice"] != "":
+            if "Stimme" in entry["voice"]:
+                entry["voice"] = entry["voice"].split("Stimme")[0].split(" ")[-1]
+            entry["number"] = 1
             conn.execute(table.insert(), [
                 {'unternehmenId': new_data['unternehmenId'],
                  'Aktienart': entry["type"],
                  'Stueck': entry["number"].strip(),
                  'Stimmzahl': entry["voice"].strip(),
-                 'Nennwert': entry["nw"],
+                 'Nennwert': entry["nw"].replace(entry["currency"],"").replace("(rechnerisch)","").strip(),
                  'Waehrung': entry["currency"],
                  'Bemerkung': entry["info"],
                  'Rang': idx + 1,
                  }])
     return 0
 
+def exract_stuecklung(content):
+    print(f"Input: {content}\n")
+    results = []
+    content = content.replace("Nennwert von", "zu").replace("(rechnerischer Wert","zu").replace("jeweils zu", "zu").replace("zu je","zu").replace(" je "," zu ")
+    #nw = True
+    #for wn in ["o.N.","o.N","nennwertlose", "nennwertlos", "ohne Nennwert"]:
+    #    content = content.replace(wn, "")
+        #nw = False
+    re_delpunct = re.compile(r"(\d)(\.)(\d)")
+    if re_delpunct.search(content):
+        for finding in re_delpunct.finditer(content):
+            content = content.replace(finding[2], " ")
+    re_date = re.compile(r'(\d\d/\d\d)')
+    if re_date.search(content):
+        for finding in re_date.finditer(content):
+            content = content.replace(finding[0],"")
+    if "zu" in content:
+        re_nmbgrps = re.compile(r'(\d[\d\s]*)(\D*)(zu){1,}(\D*)(\d{1,},{1,}[\d-]{1,})')
+        for finding in re_nmbgrps.finditer(content):
+            nw = True
+            for wn in ["o.N.", "o.N", "nennwertlose", "nennwertlos", "ohne Nennwert"]:
+                content = content.replace(wn, "")
+                nw = False
+            content = content.replace(finding[0],"")
+            results.append({"Anzahl":finding[1],
+                            "Aktienart":finding[2].replace("zum rechn. ","").replace("und","").strip(";, "),
+                           "Waehrung":finding[4].strip(),
+                            "Betrag":finding[5].replace(",-",""),
+                           "nw": nw
+                           })
+            print("Anzahl:   "+finding[1])
+            print("Aktie:    "+finding[2].replace("zum rechn. ","").replace("und","").strip(";, "))
+            print("zu:       "+finding[3])
+            print("Waehrung: "+finding[4].strip())
+            print("Betrag:   "+finding[5].replace(",-","")+"\n")
+
+    if content != "" and "ISIN" not in content:
+        re_nmbgrps = re.compile(r'(\d[\d\s]*)(\D*)')
+        for finding in re_nmbgrps.finditer(content):
+            nw = True
+            for wn in ["o.N.", "o.N", "nennwertlose", "nennwertlos", "ohne Nennwert"]:
+                finding[2] = finding[2].replace(wn, "")
+                nw = False
+            content = content.replace(finding[0],"")
+            results.append({"Anzahl": finding[1],
+                           "Aktienart": finding[2].replace("zum rechn. ", "").replace("und", "").strip(";, "),
+                           "nw": nw
+                           })
+            print("Stueck:   "+finding[1])
+            print("Aktie:    "+finding[2].replace("zum rechn. ","").replace("und","").strip(";, ")+"\n")
+    print(f"Rest: {content}\n\n")
+    return results
 
 def Stueckelungtable(conn, new_data, table):
     print(table.columns.keys())
     if "shareinfo" not in new_data: return 0
-    for idx, entry in enumerate(new_data["shareinfo"]):
+    idx = 1
+    for entry in new_data["shareinfo"]:
         if entry["number"] != "":
-            conn.execute(table.insert(), [
-                {'unternehmenId': new_data['unternehmenId'],
-                 'Aktienart': entry["type"],
-                 'Anzahl': entry["number"].strip(),
-                 'Nominalwert': entry["nw"],
-                 'Waehrung': entry["currency"],
-                 'Bemerkung': entry["info"],
-                 'Rang': idx+1,
-                 }])
+            results = exract_stuecklung(entry["number"])
+            for result in results:
+                entry["number"] = result.get("Anzahl","")
+                entry["type"] = result.get("Aktienart","")
+                entry["currency"] = result.get("Waehrung", "")
+                entry["nw"] = result.get("Betrag", "")
+                conn.execute(table.insert(), [
+                    {'unternehmenId': new_data['unternehmenId'],
+                     'Aktienart': entry["type"],
+                     'Anzahl': entry["number"].strip(),
+                     'Nominalwert': entry["nw"].replace(entry["currency"],"").replace("(rechnerisch)","").strip(),
+                     'Waehrung': entry["currency"],
+                     'Bemerkung': entry["info"],
+                     'Rang': idx,
+                     }])
+                idx+=1
     return 0
 
 
@@ -1044,7 +1131,7 @@ def Unternehmentable(conn, new_data, table):
     conn.execute(table.insert(), [
         {'unternehmenId': new_data['unternehmenId'],
          'Unternehmen': new_data['name'],
-         'Stammdaten': SD,
+         'Stammdaten': SD.replace("Sitz: ",""),
          'Taetigkeitsgebiet': new_data['activity_description'],
          'Gruendungsjahr': new_data['established_year'],
          'AGseit': "",
