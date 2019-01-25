@@ -1833,17 +1833,15 @@ def akf_db_updater(file,dbPath):
 def main(config):
     # The filespath are stored in the config.ini file.
     # For later use to iterate over all dir
-    if config['DEFAULT']['SingleOn'] == "True":
-        folders = [config['DEFAULT']['SinglePath']]
+    if config['CDS']['SingleOn'] == "True":
+        folders = [os.path.normpath(config['DEFAULT']['SinglePath'])]
     else:
-        my_path = config['DEFAULT']['AllPath'] + "/"
+        my_path = config['CDS']['AllPath']
+        my_path = os.path.normpath(my_path)
         # folders = glob.glob(my_path) # old way of obtaining all folders
-
         # define the path (with pathlib so absolute paths also work in unix)
-        folders = sorted(glob.glob(my_path))
-    dbPath = config['DEFAULT']['DBPath']
-    #if int(config['DEFAULT']['SingleOn']) == 1:
-    #    folders = [config['DEFAULT']['SinglePath']]
+        folders = sorted(glob.glob(os.path.normpath(my_path)))
+    dbPath = os.path.normpath(config['DEFAULT']['DBPath'])
     t0all = time.time()
     for folder in folders:
         """"" Read files """""
