@@ -134,7 +134,7 @@ def Aktionaertable(conn, new_data, table):
                         comment = " ".join(entry["bemerkungen"])
                     if 'name' in entry:
                         entry['beteiliger'] = entry['name']
-                    if not entry["ort"].strip()[0].isupper():
+                    if entry.get("ort","") != "" and not entry["ort"].strip()[0].isupper():
                         comment = " Info: " + entry['ort'] + " " + comment
                         entry['ort'] = ""
                     pwords = ["u.", "%", "über", "ca.", "Kdt.", "Inc.", "dir."]
@@ -595,7 +595,7 @@ def Geschaeftsjahrtable(conn, new_data, table):
     for entry in new_data['sonstigeAngaben']:
         if entry[0].find('jahr') != -1:
             GJ = " ".join(entry[1:])
-    if len(GJ.split("-")) == 2:
+    if len(GJ.split("-")) > 1:
         GJA = "".join([char for char in GJ.split("-")[0] if not char.isalpha()])
         GJE = "".join([char for char in GJ.split("-")[1] if not char.isalpha()])
         GJ = ""
@@ -777,7 +777,7 @@ def Kapitalarttable(conn, new_data, table):
             currency, amount = "", ""
             if entry['betrag'] != "":
                 currency = entry['betrag'].translate(str.maketrans('', '', string.punctuation + string.digits)).strip()
-                amount = "".join([char for char in entry['betrag'] if char.isdigt() or char in [".,-"]])
+                amount = "".join([char for char in entry['betrag'] if char.isdigit() or char in [".-"]])
                 #for feat in currency.split():
                 #    if feat.strip() in ["Mio","Mrd","Tsd","Brd"]:
                 #        currency = currency.replace(feat, '')
@@ -994,25 +994,80 @@ def Stimmrechttable(conn, new_data, table):
     """
     print(table.columns.keys())
     if "shareinfo" not in new_data: return 0
-    for idx, entry in enumerate(new_data["shareinfo"]):
+    idx = 1
+    for entry in new_data["shareinfo"]:
         if entry["voice"] != "":
-            if "Stimme" in entry["voice"]:
-                entry["voice"] = entry["voice"].split("Stimme")[0].split(" ")[-1]
-            entry["number"] = 1
-            conn.execute(table.insert(), [
-                {'unternehmenId': new_data['unternehmenId'],
-                 'Aktienart': entry["type"],
-                 'Stueck': entry["number"].strip(),
-                 'Stimmzahl': entry["voice"].strip(),
-                 'Nennwert': entry["nw"].replace(entry["currency"],"").replace("(rechnerisch)","").strip(),
-                 'Waehrung': entry["currency"],
-                 'Bemerkung': entry["info"],
-                 'Rang': idx + 1,
-                 }])
+            entry["voice"] = entry["voice"].replace("Je","je").replace("jede","je").split(":")[-1]
+            if len(entry["voice"].split("je")) > 1:
+                for part in entry["voice"].split("je"):
+                    if part.strip() == "": continue
+                    subparts = part.split("=")
+                    type = entry["type"]
+                    if "nom." in subparts[0]:
+                        type = "nom."
+                    else:
+                        type = get_type(subparts[0])
+                    amountreg = re.compile(r'([\d\s\\/]*)(\D*)([\d,\-]*)')
+                    #print(subparts[0])
+                    finding = amountreg.findall(subparts[0].strip())[0]
+                    stuck = finding[0]
+                    if stuck == "":
+                        stuck = "1"
+                    currency, nw = "",""
+                    if finding[2] != "":
+                        currency = finding[1].strip().split(" ")[-1]
+                    nw = finding[2]
+                    voicereg = re.compile(r'(\D*)([\d\\/]*)(\D*)')
+                    if len(subparts) > 1:
+                        finding = voicereg.findall(subparts[1])
+                        if finding:
+                            finding = finding[0]
+                            voice = finding[1]
+                            if voice == "":
+                                voice = "1"
+                        else:
+                            voice = "SEE THAT"
+                    else:
+                        voice = "SEE THIS"
+                    #print(part)
+                    conn.execute(table.insert(), [
+                        {'unternehmenId': new_data['unternehmenId'],
+                         'Aktienart': type,
+                         'Stueck': stuck,
+                         'Stimmzahl': voice,
+                         'Nennwert': nw,
+                         'Waehrung': currency,
+                         'Bemerkung': entry["info"],
+                         'Rang': idx,
+                         }])
+                    idx +=1
+            else:
+                conn.execute(table.insert(), [
+                    {'unternehmenId': new_data['unternehmenId'],
+                     'Aktienart': entry["type"],
+                     'Stueck': "",
+                     'Stimmzahl': "",
+                     'Nennwert': "",
+                     'Waehrung': "",
+                     'Bemerkung': entry["voice"]+entry["info"],
+                     'Rang': idx,
+                     }])
+                idx += 1
     return 0
 
-def exract_stuecklung(content):
-    print(f"Input: {content}\n")
+def get_type(content):
+    typereg = re.compile(r"\s?([\w\-]*aktie[n]?)\s")
+    stckreg = re.compile(r"\s?(\w*tück\w*)\s")
+    type = ""
+    if typereg.search(content):
+        type = typereg.findall(content)[0]
+    elif stckreg.search(content):
+        type = "Stückaktien"
+    return type
+
+def exract_stuecklung(content, VERBOSE = False):
+    if VERBOSE:
+        print(f"Input: {content}\n")
     results = []
     content = content.replace("Nennwert von", "zu").replace("(rechnerischer Wert","zu").replace("jeweils zu", "zu").replace("zu je","zu").replace(" je "," zu ")
     #nw = True
@@ -1030,38 +1085,46 @@ def exract_stuecklung(content):
     if "zu" in content:
         re_nmbgrps = re.compile(r'(\d[\d\s]*)(\D*)(zu){1,}(\D*)(\d{1,},{1,}[\d-]{1,})')
         for finding in re_nmbgrps.finditer(content):
+            type = get_type(finding[0])
             nw = True
+            wnreplace = ""
             for wn in ["o.N.", "o.N", "nennwertlose", "nennwertlos", "ohne Nennwert"]:
-                content = content.replace(wn, "")
+                wnreplace = finding[2].replace(wn, "")
                 nw = False
+                break
             content = content.replace(finding[0],"")
-            results.append({"Anzahl":finding[1],
-                            "Aktienart":finding[2].replace("zum rechn. ","").replace("und","").strip(";, "),
-                           "Waehrung":finding[4].strip(),
-                            "Betrag":finding[5].replace(",-",""),
-                           "nw": nw
+            results.append({"Anzahl":    finding[1],
+                            "Aktienart": type,
+                            "Waehrung":  finding[4].strip(),
+                            "Betrag":    finding[5].replace(",-",""),
+                            "nw":        nw
                            })
-            print("Anzahl:   "+finding[1])
-            print("Aktie:    "+finding[2].replace("zum rechn. ","").replace("und","").strip(";, "))
-            print("zu:       "+finding[3])
-            print("Waehrung: "+finding[4].strip())
-            print("Betrag:   "+finding[5].replace(",-","")+"\n")
-
+            if VERBOSE:
+                print("Anzahl:   "+finding[1])
+                print("Aktie:    "+finding[2].replace(wnreplace,"").replace("zum rechn. ","").replace("und","").strip(";, "))
+                print("zu:       "+finding[3])
+                print("Waehrung: "+finding[4].strip())
+                print("Betrag:   "+finding[5].replace(",-","")+"\n")
     if content != "" and "ISIN" not in content:
         re_nmbgrps = re.compile(r'(\d[\d\s]*)(\D*)')
         for finding in re_nmbgrps.finditer(content):
             nw = True
+            wnreplace = ""
             for wn in ["o.N.", "o.N", "nennwertlose", "nennwertlos", "ohne Nennwert"]:
-                finding[2] = finding[2].replace(wn, "")
+                wnreplace = wn
                 nw = False
+                break
             content = content.replace(finding[0],"")
+            type = get_type(finding[0])
             results.append({"Anzahl": finding[1],
-                           "Aktienart": finding[2].replace("zum rechn. ", "").replace("und", "").strip(";, "),
+                           "Aktienart": type,
                            "nw": nw
                            })
-            print("Stueck:   "+finding[1])
-            print("Aktie:    "+finding[2].replace("zum rechn. ","").replace("und","").strip(";, ")+"\n")
-    print(f"Rest: {content}\n\n")
+            if VERBOSE:
+                print("Stueck:   "+finding[1])
+                print("Aktie:    "+finding[2].replace(wnreplace,"").replace("zum rechn. ","").replace("und","").strip(";, ")+"\n")
+    if VERBOSE:
+        print(f"Rest: {content}\n\n")
     return results
 
 def Stueckelungtable(conn, new_data, table):
@@ -1073,7 +1136,7 @@ def Stueckelungtable(conn, new_data, table):
             results = exract_stuecklung(entry["number"])
             for result in results:
                 entry["number"] = result.get("Anzahl","")
-                entry["type"] = result.get("Aktienart","")
+                #entry["type"] = result.get("Aktienart","")
                 entry["currency"] = result.get("Waehrung", "")
                 entry["nw"] = result.get("Betrag", "")
                 conn.execute(table.insert(), [
@@ -1351,6 +1414,19 @@ def seperate_shareinfo(entry_split,entries,shareinfo):
         else:
             entries = " ".join(entries.split(" ")[idx + 1:])
             break
+    get_kennnummer(entries,shareinfo)
+    return 0
+
+def get_kennnummer(entries,shareinfo):
+    re_idnr = re.compile(r"(WKN|Kenn-Nr|ISIN)\S*\s(\S*)")
+    for finding in re_idnr.finditer(entries):
+        if finding[1] == "ISIN":
+            shareinfo['isin'] = finding[2]
+            shareinfo["info"] = entries.replace(finding[1],"").replace(finding[2],"")
+        else:
+            shareinfo['wkn'] = finding[2]
+            shareinfo["info"] = entries.replace(finding[1],"").replace(finding[2],"")
+    """
     if "WKN" in entries:
         shareinfo['wkn'] = entries.split("WKN")[-1].replace(".", "").replace(":", "")
         shareinfo["info"] = entries.split("WKN")[0]
@@ -1360,7 +1436,9 @@ def seperate_shareinfo(entry_split,entries,shareinfo):
     elif "ISIN" in entries or "Wertpapier-Kenn-Nr" in entries:
         shareinfo['isin'] = entries.split("ISIN")[-1].replace(".", "").replace(":", "")
         shareinfo["info"] = entries.split("ISIN")[0]
-    return 0
+    """
+    return
+
 
 
 def get_shareinfo(new_data):
@@ -1377,6 +1455,7 @@ def get_shareinfo(new_data):
         if max_entries > 1:
             new_data['grundkapital']['bemerkungen'].append([new_data['grundkapital']['betrag'],"Grundkapital"])
         # TODO-Hint: Search here if something smells fishy!
+        # TODO: REWORK REWORK REWORK!!! AND STIMMRECHT-STÜCKELUNG!
         for idx, entries in enumerate(x for x in new_data['grundkapital']['bemerkungen'] if x and not (len(x) == 1 and x[0]== "")):
             shareinfo = {'wkn': "", 'isin': "", 'nw': "", 'type': "", 'number': "", 'voice': "", 'amount': "",
                          'currency': "", 'info': ""}
@@ -1394,7 +1473,7 @@ def get_shareinfo(new_data):
                 if " Stimme" in entry:
                     new_data["stimmrecht"].append(entry)
                     entries[idxx] = ""
-            if entries[0] == "": continue
+            #if entries[0] == "": continue
             if len(entry_split) <= 1: continue
             if len(entry_split[0]) > 1 and not entry_split[0][1].isupper() \
                 and (len(entry_split) < 2 or not entry_split[1][0].isdigit()):
@@ -1408,12 +1487,20 @@ def get_shareinfo(new_data):
                         if not entries:
                             continue
                         entry_split = entries[0].split(" ")
-
+            re_amount = re.compile(r'(\D*\S\D)\s(\d[\d\s.,]*(Mio\.?|Mrd\.?|Brd\.?)?)')
+            finding = re_amount.search(entries[0])
+            if finding:
+                shareinfo["currency"] = finding[1]
+                shareinfo["amount"] = finding[2]
+                shareinfo['info'] += " ".join(entries[1:])
+            get_kennnummer(entries[-1], shareinfo)
+            """
             if len(entry_split[0]) > 1 and entry_split[0][1].isupper() and entry_split[1][0].isdigit():
+                
                     seperate_shareinfo(entry_split[0], entries[0], shareinfo)
                     if len(entries) > 1:
                         shareinfo['info'] += " ".join(entries[1:])
-
+            """
             if len(new_data['stückelung'])-1 >= idx: shareinfo['number'] = new_data['stückelung'][idx]
             if len(new_data['stimmrecht'])-1 >= idx: shareinfo['voice'] = new_data['stimmrecht'][idx]
             sharewkn = shareinfo['wkn']+shareinfo['isin'].replace(" ","")
@@ -1435,13 +1522,18 @@ def get_shareinfo(new_data):
             for entry in entries:
                 if entry in entrydict:
                     if entry == "betrag":
-                        entry_split = entries[entry].split()
-                        if len(entry_split[0]) > 1 and entry_split[0][1].isupper() and entry_split[1][0].isdigit():
-                            seperate_shareinfo(entry_split[0], entries[entry], shareinfo)
+                        re_amount = re.compile(r'(\D*\S\D)\s(\d[\d\s.,]*(Mio\.?|Mrd\.?|Brd\.?)?)')
+                        finding = re_amount.search(entries[entry])
+                        if finding:
+                            shareinfo["currency"] = finding[1]
+                            shareinfo["amount"] = finding[2]
+                            shareinfo["info"] = entries[entry]
+                            #seperate_shareinfo(entry_split[0], entries[entry], shareinfo)
                         else:
                             shareinfo[entrydict[entry]] += entries[entry] + " "
                     else:
                         shareinfo[entrydict[entry]] += entries[entry]+" "
+                    get_kennnummer(entries[entry], shareinfo)
         shareinfolist.append(deepcopy(shareinfo))
         del shareinfo
     new_data["shareinfo"] = shareinfolist
@@ -1671,7 +1763,7 @@ def get_files(filedir):
     """
     Get all file names!
     """
-    inputfiles = sorted(glob.glob(filedir + "*.json"))
+    inputfiles = sorted(glob.glob(os.path.normcase(filedir+"/")+"*.json"))
     return inputfiles
 
 
@@ -1781,6 +1873,15 @@ def akf_db_updater(file,dbPath):
     # Get shareinfo for later use
     get_shareinfo(new_data)
 
+    """
+    with open("stimmrecht.txt","a") as stfile:
+        for entry in new_data["shareinfo"]:
+            stfile.write(entry["voice"]+"\n")
+    with open("stuckelung.txt","a") as stfile:
+        for entry in new_data["shareinfo"]:
+            stfile.write(entry["number"]+"\n")
+    return
+    """
     # Start writing in the table
     print("TABLES")
     options = {
@@ -1841,7 +1942,7 @@ def main(config):
         # folders = glob.glob(my_path) # old way of obtaining all folders
         # define the path (with pathlib so absolute paths also work in unix)
         folders = sorted(glob.glob(os.path.normpath(my_path)))
-    dbPath = os.path.normpath(config['DEFAULT']['DBPath'])
+    dbPath = config['DEFAULT']['DBPath']
     t0all = time.time()
     for folder in folders:
         """"" Read files """""
