@@ -925,6 +925,7 @@ def Kennzahlentable(conn, new_data, table):
 
 def Maintable(conn, new_data, table):
     print(table.columns.keys())
+    return
     if new_data['reference'] == new_data['unternehmenId']:
         nextid = get_lastid(table, conn)
         new_data['id'] = nextid
@@ -943,6 +944,7 @@ def Maintable(conn, new_data, table):
 
 def MainRelationtable(conn, new_data, table):
     print(table.columns.keys())
+    return
     #if new_data['reference'] != new_data['unternehmenId']:
     conn.execute(table.insert(), [
         {'referenz': new_data["reference"],
@@ -995,7 +997,24 @@ def Stimmrechttable(conn, new_data, table):
     print(table.columns.keys())
     if "shareinfo" not in new_data: return 0
     idx = 1
-    for entry in new_data["shareinfo"]:
+    for si in new_data["shareinfo"]:
+        if si["amount"] != "":
+           info = f"Gesamtbetrag: {si['amount']},"+si["info"]
+        else:
+            info = si["info"]
+        conn.execute(table.insert(), [
+            {'unternehmenId': new_data['unternehmenId'],
+             'Aktienart': si["type"],
+             'Stueck': si["stuck"],
+             'Stimmzahl': si["voice"],
+             'Nennwert': si["nw"],
+             'Waehrung': si["currency"],
+             'Bemerkung': info,
+             'Rang': idx,
+             }])
+        idx += 1
+    return
+    """
         if entry["voice"] != "":
             entry["voice"] = entry["voice"].replace("Je","je").replace("jede","je").split(":")[-1]
             if len(entry["voice"].split("je")) > 1:
@@ -1008,7 +1027,7 @@ def Stimmrechttable(conn, new_data, table):
                     else:
                         type = get_type(subparts[0])
                     amountreg = re.compile(r'([\d\s\\/]*)(\D*)([\d,\-]*)')
-                    #print(subparts[0])
+                    #print(subparts[0]))
                     finding = amountreg.findall(subparts[0].strip())[0]
                     stuck = finding[0]
                     if stuck == "":
@@ -1041,20 +1060,8 @@ def Stimmrechttable(conn, new_data, table):
                          'Rang': idx,
                          }])
                     idx +=1
-            else:
-                conn.execute(table.insert(), [
-                    {'unternehmenId': new_data['unternehmenId'],
-                     'Aktienart': entry["type"],
-                     'Stueck': "",
-                     'Stimmzahl': "",
-                     'Nennwert': "",
-                     'Waehrung': "",
-                     'Bemerkung': entry["voice"]+entry["info"],
-                     'Rang': idx,
-                     }])
-                idx += 1
     return 0
-
+    """
 def get_type(content):
     typereg = re.compile(r"\s?([\w\-]*aktie[n]?)\s")
     stckreg = re.compile(r"\s?(\w*tück\w*)\s")
@@ -1088,15 +1095,20 @@ def exract_stuecklung(content, VERBOSE = False):
             type = get_type(finding[0])
             nw = True
             wnreplace = ""
+            number = finding[1]
+            amount = finding[5].replace(",-", "")
+            unitreg = re.compile(r'(Mio|Mrd|Brd)')
+            if unitreg.search(content):
+                number += f" {unitreg.search(content)[0]}"
             for wn in ["o.N.", "o.N", "nennwertlose", "nennwertlos", "ohne Nennwert"]:
                 wnreplace = finding[2].replace(wn, "")
                 nw = False
                 break
             content = content.replace(finding[0],"")
-            results.append({"Anzahl":    finding[1],
+            results.append({"Anzahl":    number,
                             "Aktienart": type,
                             "Waehrung":  finding[4].strip(),
-                            "Betrag":    finding[5].replace(",-",""),
+                            "Betrag":    amount,
                             "nw":        nw
                            })
             if VERBOSE:
@@ -1131,7 +1143,23 @@ def Stueckelungtable(conn, new_data, table):
     print(table.columns.keys())
     if "shareinfo" not in new_data: return 0
     idx = 1
-    for entry in new_data["shareinfo"]:
+    for si in new_data["shareinfo"]:
+        if si["amount"] != "":
+           info = f"Gesamtbetrag: {si['amount']},"+si["info"]
+        else:
+            info = si["info"]
+        conn.execute(table.insert(), [
+            {'unternehmenId': new_data['unternehmenId'],
+             'Aktienart': si["type"],
+             'Anzahl': si["number"],
+             'Nominalwert': si["nomval"],
+             'Waehrung': si["currency"],
+             'Bemerkung': info,
+             'Rang': idx,
+             }])
+        idx += 1
+    return
+    """
         if entry["number"] != "":
             results = exract_stuecklung(entry["number"])
             for result in results:
@@ -1150,7 +1178,7 @@ def Stueckelungtable(conn, new_data, table):
                      }])
                 idx+=1
     return 0
-
+    """
 
 def Unternehmentable(conn, new_data, table):
     print(table.columns.keys())
@@ -1459,6 +1487,7 @@ def get_shareinfo(new_data):
         for idx, entries in enumerate(x for x in new_data['grundkapital']['bemerkungen'] if x and not (len(x) == 1 and x[0]== "")):
             shareinfo = {'wkn': "", 'isin': "", 'nw': "", 'type': "", 'number': "", 'voice': "", 'amount': "",
                          'currency': "", 'info': ""}
+            stype = ""
             if isinstance(entries, str): entries = [entries]
             if entries[0] == "": del entries[0]
             if not entries: continue
@@ -1466,6 +1495,7 @@ def get_shareinfo(new_data):
             entry_split = entries[0].split(" ")
             # The query was earlier in "seperate shareinfo"
             for idxx, entry in enumerate(entries):
+                entry_splitted = entry.split(" ")
                 for feat in ["Stückelung", "Stück "]:
                     if feat in entry:
                         new_data["stückelung"].append(entry.split(feat)[-1])
@@ -1473,6 +1503,49 @@ def get_shareinfo(new_data):
                 if " Stimme" in entry:
                     new_data["stimmrecht"].append(entry)
                     entries[idxx] = ""
+                kennnummer = [wkn["wkn"] for wkn in new_data["all_wkn_entry"]]+[wkn["isin"] for wkn in new_data["all_wkn_entry"]]
+                aktienarten = [wkn["type"] for wkn in new_data["all_wkn_entry"]] + [wkn["type"] for wkn in
+                                                                                  new_data["all_wkn_entry"]]
+                for idxes, es in enumerate(entry_splitted):
+                    if "Kenn-Nr" in es:
+                        if idxes+1 < len(entry_splitted):
+                            if entry_splitted[idxes+1] not in kennnummer:
+                                stype = ""
+                                for idxcon, content in enumerate(entry_splitted):
+                                    if "ktien" in content:
+                                        stype = content[0]
+                                        if "vinku" in entry_splitted[idxcon-1]:
+                                            stype = "vinkuliert "+stype
+                                        break
+                                new_data["all_wkn_entry"].append({"type": stype,
+                                                                  "isin": "",
+                                                                  "wkn": entry_splitted[idxes + 1],
+                                                                  "nw": ""})
+                                break
+                            else:
+                                stype = aktienarten[kennnummer.index(entry_splitted[idxes+1] )]
+                                #new_data["all_wkn_entry"][len(new_data["all_wkn_entry"])] = {"type":stype[0],
+                                #                                                             "isin":"",
+                                #                                                             "wkn":entry_splitted[idxes+1],
+                                #                                                             "nw":""}
+                    if "ISIN" in es:
+                        if idxes + 1 < len(entry_splitted):
+                            if entry_splitted[idxes + 1] not in kennnummer:
+                                stype = ""
+                                for idxcon, content in enumerate(entry_splitted):
+                                    if "ktien" in content:
+                                        stype = content[0]
+                                        if "vinku" in entry_splitted[idxcon - 1]:
+                                            stype = "vinkuliert " + stype
+                                        break
+                                new_data["all_wkn_entry"].append({"type": stype,
+                                                                  "isin": entry_splitted[idxes + 1],
+                                                                  "wkn": "",
+                                                                  "nw": ""})
+                                break
+                            else:
+                                stype = aktienarten[kennnummer.index(entry_splitted[idxes+1] )]
+
             #if entries[0] == "": continue
             if len(entry_split) <= 1: continue
             if len(entry_split[0]) > 1 and not entry_split[0][1].isupper() \
@@ -1503,6 +1576,8 @@ def get_shareinfo(new_data):
             """
             if len(new_data['stückelung'])-1 >= idx: shareinfo['number'] = new_data['stückelung'][idx]
             if len(new_data['stimmrecht'])-1 >= idx: shareinfo['voice'] = new_data['stimmrecht'][idx]
+            if shareinfo["type"] == "" and stype != "":
+                shareinfo["type"] = stype
             sharewkn = shareinfo['wkn']+shareinfo['isin'].replace(" ","")
             if sharewkn != "":
                 for entry in new_data["all_wkn_entry"]:
@@ -1539,6 +1614,104 @@ def get_shareinfo(new_data):
     new_data["shareinfo"] = shareinfolist
     print(new_data["shareinfo"])
     return 0
+
+def stck_stimmrecht(data):
+    #data="\f\n\n\n\n\n\n\n\n Basler Aktiengesellschaft \n\nWertpapier Kenn.-Nr.: 510200 (Inhaber-Stammaktien) \n\n Sitz \n\nAn der Strusbek 30, 22926 Ahrensburg Telefon: (0 41 02) 4 63-0 Telefax: (0 41 02) 4 63-108 \n\n\n\n Tätigkeitsgebiet/Gründung \n\nEntwicklung, Herstellung und Vertrieb von Produkten der Meß-, Automatisierungs- und Rechnertechnik. \n\n \n\nGründung: 1988 \n\n Management \n\nAufsichtsrat:  Dipl.-Ing. Prof. Dr.-Ing. Walter Kunerth, Zeitlarn, Vors.; Dipl.-Kfm. Hans Henning Offen, Großhansdorf, stellv. Vors.; Dipl.-Betriebsw. Bernd Priske, Willich-Neersen \n\nVorstand:  Dipl.-Ing. Norbert Basler, Großhansdorf, Vors.; Bryan Hayes, Hamburg; Dr. Dietmar Ley, Ahrensburg; Dipl.-Wirtschafts-Ing. Thorsten Schmidtke, Hamburg \n\n\n\n Aktionäre \n\nDipl.-Ing. Norbert Basler, Großhansdorf (45,7%); IKB Beteiligungsgesellschaft mbH, Düseldorf (21,4%); Nicola-Irina Basler, Großhansdorf (4,3%); Dr. Dietmar Ley, Ahrensburg (4,3%); Bryan Hayes, Hamburg (4,3%); Streubesitz \n\n\n\n\n\n Wesentliche Beteiligungen \n\n\n\n  Basler Inc., Exton (USA), Kapital: US$ 0,03 Mio (100%)\n\n\n\n\n\n Kapitalentwicklung seit 1980 \n\n\n\n  1988GründungskapitalDM 0,05 Mio\n\n  der GmbH\n\n  1993ErhöhungDM 0,1 Mio\n\n  Gem. GV vom 3.6.\n\n  1994ErhöhungDM 0,25 Mio\n\n  Im April\n\n  1997ErhöhungDM 0,4 Mio\n\n  Im August\n\n  1998Kapital bei Umwandlung der GesellschaftDM 0,4 Mio\n\n  in AG gem. GV vom 13.10.\n\n  1999Umstellung auf EUREUR 204 516,75\n\n  Gem. HV vom 24.2\n\n  KapitalberichtigungEUR 3 Mio\n\n  Gem. HV vom 24.2. (ohne Ausgabe von Aktien).\n\n  BareinlageEUR 3,5 Mio\n\n  Gem. ao. HV vom 3.3.\n\n\n\n\n\n\n\n  Derzeitiges GrundkapitalEUR 3,5 Mio\n\n\n\nInhaber-Stammaktien, WP-Kenn-Nr. 510200 Stückelung: 3 500 000 Stückaktien Stimmrecht: je Stückaktie = 1 Stimme \n\n\n\n\n\n  Genehmigtes KapitalEUR 1,75 Mio\n\n\n\nGem. ao. HV vom 3.3.1999, befristet bis 3.3.2004 (ggf. unter Ausschluß des ges. Bezugsrechts). \n\n\n\n\n\n  Bedingtes KapitalEUR 0,3 Mio\n\n\n\nGem. ao. HV vom 3.3.1999 für Manager und Mitarbeiter der Gruppe (300 000 Stücke) \n\n\n\n Börsenbewertung \n\nWertpapier-Kenn-Nr.: 510200, Inhaber-Stammaktien \n\nNotiert: Neuer Markt in Frankfurt \n\nMarktbetreuer: Dresdner Bank AG; BHF-Bank AG \n\nNotiert seit 23.3.1999 Stückaktien o.N.; Emissionspreis: EUR 57,- \n\n\n\nBereinigte Kurse (Frankfurt in EUR) \n\n\n\n  \n\n  \n\n  \n\n  \n\n  \n\n  1999\n\n  \n\n  \n\n  \n\n  \n\n  \n\n  \n\n  bis 31.3.\n\n  \n\n  Höchst\n\n  \n\n  \n\n  \n\n  \n\n  95,00\n\n  \n\n  Tiefst\n\n  \n\n  \n\n  \n\n  \n\n  78,00\n\n  \n\n  Ultimo\n\n  \n\n  \n\n  \n\n  \n\n  82,00\n\n  \n\n\n\n\n\n Dividenden (in DM; Auschüttungen sind erst für das Jahr 2000 geplant) \n\n\n\n  \n\n  \n\n  \n\n  \n\n  1998\n\n  1999\n\n  \n\n  Dividende\n\n  \n\n  \n\n  \n\n  0\n\n  0\n\n  \n\n\n\n\n\n \n\n Sonstige Angaben \n\nWirtschaftsprüfer : ARTHUR ANDERSEN Wirtschaftsprüfungsgesellschaft Steuerberatungsgesellschaft mbH, Hamburg \n\nHauptversammlung: 3.3.1999 (ao. HV) \n\nGeschäftsjahr: Kalenderjahr \n\n\n\n"
+    #data= "Inhaber-Stammaktien, WP-Kenn-Nr. 553700 voll an der Börse zugelassen und eingeführt Stückelung: 77 000 Stücke zu je DM 50; 102 000 zu DM 100; 25 000 zu DM 300; 100 450 zu DM 1 000 Stimmrecht: Das Stimmrecht jeder Aktie entspricht ihrem Nennbetrag."
+    #data = "\n\n\n\n\n\n\n\n\n \n\n Didier-Werke Aktiengesellschaft \n\nWertpapier Kenn.-Nr.: 553700 (Inhaber-Stammaktien) \n\n Sitz \n\nAbraham-Lincoln-Straße 1, 65189 Wiesbaden Postfach 20 25, 65010 Wiesbaden Telefon: (06 11) 73 35-0 Telefax: (06 11) 73 35-4 75 \n\n\n\n Tätigkeitsgebiet/Gründung \n\nFeuerfest-Produkte: Fertigung, Vertrieb, Montage von hochtemperaturfester Spezialkeramik. Anlagentechnik: Konstruktion, Fertigung, Vertrieb, Montage von Spezialaggregaten der Energie-, der Hochtemperatur-, der Korrosionsschutz- und Umweltschutztechnik. \n\n \n\nGründung: 1834 \n\n Management \n\nAufsichtsrat:  Dr. Walter Ressler, Villach (Österreich), Vors.; Roland Platzer, Wien (Österreich), stellv. Vors.; Hubert Jacobs, Wiesbaden *); Dipl.-Ing. Dr. Günther Mörtl, Wien (Österreich); Jürgen Waligora, Duisburg *); Dr. Wilhelm Winterstein, München \n\n*) Arbeitnehmervertreter \n\nVorstand:  Dipl.-Kfm. Robert Binder, Wiesbaden; Dipl.-Ing. Ingo Gruber, St. Veit/Glan (Österreich); Dr. Andreas Meier, Niklasdorf (Österreich); Dipl.-Ing. Uwe Schatz, Urmitz/Rhein; Walther von Wietzlow (Gesamtkoordination, Finanzen, Verkauf/Marketing, Personal, Recht, Organisation) \n\nOrganbezüge : 1997: Vorstand DM 1,755 Mio; Aufsichtsrat DM 0,038 Mio \n\n Investor Relations \n\nMag. Peter Hofmann, Tel.: 0043-1-587767123, Fax: 0043-1-5873380 \n\n\n\n Aktionäre \n\nRHI AG, Wien (Österreich) (90,1%); Rest Streubesitz \n\n\n\n\n\n Wesentliche Beteiligungen \n\nI. Verbundene Unternehmen, die in den Konzernabschluß einbezogen sind (Inland) \n\n\n\n  Dinova GmbH, Königswinter, Kapital: DM 6 Mio (100%)\n\n  Didier-M&P Energietechnik GmbH, Wiesbaden, Kapital: DM 4,5 Mio (66,67%)\n\n  Teublitzer Ton GmbH, Teublitz, Kapital: DM 5 Mio (51%)\n\n\n\n\n\n  Rohstoffgesellschaft mbH Ponholz, Maxhütte-Haidhof, Kapital: DM 2 Mio (100%)\n\n\n\n\n\n \n\nII. Verbundene Unternehmen, die in den Konzernabschluß einbezogen sind (Ausland) \n\n\n\n  North American Refractories Co. (NARCO), Cleveland/Ohio (USA), Kapital: US-$ 20,158 Mio (85,12%)\n\n\n\n\n\n  Zircoa Inc., Solon/Ohio (USA), Kapital: US-$ 1 Mio (100%)\n\n  TRI-STAR Refractories Inc., Cincinnati/Ohio (USA), Kapital: US-$ 2,955 Mio (80%)\n\n\n\n\n\n  InterTec Company, Cincinnati/Ohio (USA), Kapital: US-$ 0,998 Mio (100%)\n\n\n\n\n\n  Didier, Corporation de Produits Réfractaires, Burlington (Kanada), Kapital: can$ 17 Mio (100%)\n\n\n\n\n\n  Narco Canada Inc., Burlington/Ontario (Kanada), Kapital: can$ 3,705 Mio (100%)\n\n\n\n\n\n  D.S.I.P.C. - Didier Société Industrielle de Production et de Constructions, Breuillet (Frankreich), Kapital: FF 33,713 Mio (99,88%)\n\n  Thor Ceramics Ltd., Clydebank (Großbritannien), Kapital: £ 1,375 Mio (100%)\n\n  Didier Refractarios S.A., Lugones (Spanien), Kapital: Ptas 200 Mio (100%)\n\n  REFEL S.p.A., San Vito al Tagliamento (Italien), Kapital: Lit 9 851 Mio (100%)\n\n  Didier Asia Sdn. Bhd., Petaling Jaya (Malaysia), Kapital: M-$ 7,5 Mio (60%)\n\n  Veitsch-Radex-Didier S.E.A. PTE. LTD., Singapur (Singapur), Kapital: S$ 0,3 Mio (100%)\n\n  Veitsch-Radex-Didier Andino C.A., Ciudad Guayana (Venezuela), Kapital: VEB 10 Mio (99,6%)\n\n  Veitsch-Radex-Didier México, S.A. de C.V., Garza Garcia (Mexiko), Kapital: mex$ 0,05 Mio (100%)\n\n  Veitsch-Radex-Didier Australia Pty. Ltd., Newcastle (Australien), Kapital: A$ 1,4 Mio (100%)\n\n\n\n\n\n \n\nIII. Verbundene Unternehmen, die nicht in den Konzernabschluß einbezogen sind (Inland) \n\n\n\n  Rheinischer Vulkan Chamotte- und Dinaswerke mbH, Königswinter, Kapital: DM 2 Mio (100%)\n\n  W. Strikfeld & Koch GmbH, Wiehl, Kapital: DM 1 Mio (100% über Striko-Westofen GmbH)\n\n\n\n\n\n \n\nIV. Verbundene Unternehmen, die nicht in den Konzernabschluß einbezogen sind (Ausland) \n\n\n\n  Shanghai Dinova Ltd., Shanghai (China), Kapital: DM 15 Mio (60% über Dinova GmbH)\n\n  Beijing Yanke Dinova Building Materials Co., Ltd., Peking (China), Kapital: DM 2,3 Mio (60% über Dinova GmbH)\n\n\n\n\n\n \n\nV. Beteiligungen an assoziierten Unternehmen \n\n\n\n  EKW-Eisenberger Klebsandwerke GmbH, Eisenberg/Pfalz, Kapital: DM 6 Mio (31,5%)\n\n\n\n\n\n  Société Francaise des Pises Siliceux S.A.R.L., Paris (Frankreich), Kapital: FF 1 Mio (97,5%)\n\n\n\n\n\n Kapitalentwicklung seit 1980 \n\n\n\n  1982BezugsrechtDM 92,4 Mio\n\n  Im Dezember aus gen. Kap. (HV 16.7.1981), i.V. 8:1 zu 130 %; rechn. Abschlag DM 6,- am 6.12.; div.-ber. ab 1.1.1983; Div.Sch.Nr. 42.\n\n  1989BezugsrechtDM 122 Mio\n\n  Im August aus gen. Kap. (HV 12.7.); für Aktionäre und Inhaber der Wandelanleihe von 1969 i.V. 7:2 zu 330 %; rechn. Abschlag DM 24,22 am 10.8.; div.-ber. ab 1.7.1989; Tal. bzw. Legitimationsschein A (für Inhaber der Wandelanleihe).\n\n\n\n\n\n\n\n  Besondere Bezugsrechte\n\n\n\n\n\n  1985Bezugsrecht auf Optionsanleihe i.V. 5:2 zu 100 %,  1. Bezugsrechtsnotiz DM 1,90 am 17.9., Div.Sch.Nr. 46\n\n\n\n\n\n\n\n  Derzeitiges GrundkapitalDM 122 Mio\n\n\n\nInhaber-Stammaktien, WP-Kenn-Nr. 553700 voll an der Börse zugelassen und eingeführt Stückelung: 77 000 Stücke zu je DM 50; 102 000 zu DM 100; 25 000 zu DM 300; 100 450 zu DM 1 000 Stimmrecht: Das Stimmrecht jeder Aktie entspricht ihrem Nennbetrag. \n\n\n\n\n\n  Genehmigtes KapitalDM 40 Mio\n\n\n\nGem. HV vom 18.7.1994, befristet bis 30.6.1999 \n\n\n\n Börsenbewertung \n\nWertpapier-Kenn-Nr.: 553700, Inhaber-Stammaktien \n\nNotiert: amtlich in Berlin, Düsseldorf, Frankfurt am Main und München sowie im Freiverkehr in Hamburg \n\nNotiz seit 1948 Seit 16.3.1973 Stücknotiz zu DM 50,-; seit 9.6.1969 Stücknotiz zu DM 100,-; vorher Prozentnotiz \n\n\n\nBereinigte Kurse (Frankfurt in EUR) \n\n\n\n  \n\n  1995\n\n  1996\n\n  1997\n\n  1998\n\n  1999\n\n  \n\n  \n\n  \n\n  \n\n  \n\n  \n\n  bis 31.3.\n\n  \n\n  Höchst\n\n  72,60\n\n  67,13\n\n  80,78\n\n  82,83\n\n  99,00\n\n  \n\n  Tiefst\n\n  53,69\n\n  50,11\n\n  58,29\n\n  66,47\n\n  70,00\n\n  \n\n  Ultimo\n\n  60,49\n\n  62,38\n\n  74,65\n\n  71,48\n\n  92,50\n\n  \n\n\n\n\n\n Dividenden (in DM pro Aktie) \n\n\n\n  \n\n  1993\n\n  1994\n\n  1995\n\n  1996\n\n  1997\n\n  \n\n  Dividende\n\n  0\n\n  0\n\n  0\n\n  2\n\n  3 1)\n\n  \n\n  Steuerguthaben\n\n  0\n\n  0\n\n  0\n\n  0,86\n\n  0\n\n  \n\n  Div.-Schein-Nr.\n\n  -\n\n  -\n\n  -\n\n  55\n\n  56\n\n  \n\n\n\n_____________________________ \n\n1) Freiwillige Zahlung des Mehrheitsaktionärs an außenstehende Aktionäre \n\nNr. des nächstfälligen Div.-Scheines: 57 \n\n\n\n \n\n Kennzahlen \n\n\n\n  Konzern\n\n  1993\n\n  1994\n\n  1995\n\n  1996\n\n  1997\n\n  \n\n  Investitionen (in TDM)\n\n  51 853,0\n\n  54 265,0\n\n  40 712,0\n\n  34 660,0\n\n  52 530,0\n\n  \n\n  Jahresüberschuß + Abschreibungen (in TDM)\n\n  9 057,0\n\n  45 885,0\n\n  59 420,0\n\n  58 013,0\n\n  52 584,0\n\n  \n\n  Bilanzkurs (%)\n\n  127,0\n\n  118,5\n\n  121,1\n\n  136,0\n\n  142,3\n\n  \n\n  Eigenkapitalquote (%)\n\n  16,8\n\n  16,0\n\n  17,1\n\n  19,9\n\n  20,6\n\n  \n\n\n\nBeschäftigte \n\n\n\n  Durchschnitt\n\n  6 953\n\n  6 516\n\n  5 753\n\n  5 293\n\n  4 681\n\n  \n\n  GJ-Ende\n\n  6 764\n\n  6 511\n\n  5 597\n\n  5 144\n\n  4 685\n\n  \n\n\n\n\n\n Aus den Bilanzen (in Mio DM) \n\n\n\n  \n\n  AG\n\n  Konzern\n\n\n\n  U = Posten unter 0,5 Mio DM  1996  1997  1996  1997\n\n\n\n    Aktiva          \n\n    Anlagevermögen  312  306  266  272  \n\n    ..(Sachanlagenzugang)  13  12  35  53  \n\n    ..(Beteiligungen)  250  247  28  21  \n\n    Umlaufvermögen  323  433  668  730  \n\n    ..(Flüssige Mittel)  27  12  49  28  \n\n    Rechnungsabgrenzung  U  -  8  8  \n\n    Steuerabgrenzung  -  -  4  4  \n\n\n\n\n\n    Passiva          \n\n    Eigenkapital  291  247  198  220  \n\n    ..(Gezeichnetes Kapital)  122  122  122  122  \n\n    ..(Bilanzergebnis)  5  -  5  11  \n\n    Sopo m. Rücklageant.  -  18  1  -  \n\n    Fremdkapital  344  474  744  794  \n\n    ..(Pensionsrückstell.)  148  148  186  191  \n\n    ..(And. Rückstellungen)  79  71  176  151  \n\n    ..(langfr. Verbindlichk.)  51  51  53  52  \n\n    ..(kurz- +mfr. Verbindlk.)  65  205  327  400  \n\n    Rechnungsabgrenzung  -  -  4  1  \n\n    Bilanzsumme  635  739  947  1 014  \n\n\n\n Aus den Gewinn- und Verlustrechnungen (in Mio DM) \n\n\n\n  \n\n  AG\n\n  Konzern\n\n\n\n  U = Posten unter 0,5 Mio DM  1996  1997  1996  1997\n\n\n\n    Umsatz  497  550  1 289  1 480  \n\n    Bestandsveränderung  - 9  1  2  15  \n\n    Akt. Eigenleistung  U  1  1  2  \n\n    sonst. betr. Erträge  33  54  43  72  \n\n    Materialaufwand  238  310  597  768  \n\n    Personalaufwand  145  136  395  432  \n\n    Abschreibungen  17  15  40  41  \n\n    sonst. betr. Aufwand  110  168  253  281  \n\n    Finanzergebnis  - 7  - 15  - 20  - 22  \n\n    Ergebnis d. gewöhnl. Geschäftstätigkeit  5  - 39  31  26  \n\n    Steuern  U  U  13  14  \n\n    ..(EE-Steuern)  - 2  - 1  5  6  \n\n    Jahresergebnis  5  - 39  18  11  \n\n\n\n Sonstige Angaben \n\nWirtschaftsprüfer : C & L Deutsche Revision Aktiengesellschaft Wirtschaftsprüfungsgesellschaft, Frankfurt/M. \n\nHauptversammlung: 15.5.1998 \n\nGeschäftsjahr: Kalenderjahr \n\n\n\n"
+
+    split_by_line = [line for line in data.replace("\n\n","\n").replace("\nStimmrecht","Stimmrecht").split("\n") if line != "" and ("Stückelung:" in line or ("Stückelung" in line and "Stimmrecht" in line))]
+    for line in split_by_line:
+        print(line)
+    reg_groups =re.compile(r"(Stückelung|Stimmrecht)")
+    groups = []
+    for line in split_by_line:
+        group = {}
+        datatype = "Aktien"
+        line = line.replace("papier-Nr.","Kenn-Nr.").replace("WP-Nr.","Kenn-Nr.").replace(" bzw. ","").replace("(voll eingezahlt)","").replace("- ","-")
+        sidx = 0
+        max_parts = 1
+        for finding in reg_groups.finditer(line):
+            #if datatype == "Aktien":
+            #    if re.compile(r"(Kenn-Nr\.|ISIN)"):
+            #print(finding[0])
+            group.update({datatype:line[sidx:finding.regs[0][0]].strip()})
+            if datatype != "Aktien" and "stimmrechtslos" not in line[sidx:finding.regs[0][0]] and "Besondere" not in line[sidx:finding.regs[0][0]] and max_parts < len(line[sidx:finding.regs[0][0]].split(";")):
+                max_parts = len(line[sidx:finding.regs[0][0]].split(";"))
+            #offset = -1
+            #if ":" not in finding[0]:
+            #    offset = len(finding[0])
+            datatype= finding[0][:]
+            sidx = finding.regs[0][1]+1
+        else:
+            group.update({datatype: line[sidx:].strip()})
+            if datatype != "Aktien" and "stimmrechtslos" not in line[sidx:]  and "Besondere" not in line[sidx:] and max_parts < len(line[sidx:].split(";")):
+                max_parts = len(line[sidx:].split(";"))
+        groups.append((max_parts,group))
+
+    shareinfoarr = []
+    regs = {"Aktien":re.compile(r"(?P<currency>\D*)(?P<amount>[\d\s,-]*(Mio\s|Mrd\s)?)(?P<type>(vinkulierte\s)?[^0-9,\s]*)(?P<rest>.*)"),
+            "Stückelung":re.compile(r"(?P<number>[\d\s]*)(?P<addinfo>[\D]*)(?P<nomval>[\d\s,]*)"),
+            "Stimmrecht":re.compile(r"((Je)(?P<stuck>([\d\s]*))\D*(?P<nw>[\d\s,-]*)[^=]*=(?P<voice>[\d\s]*))")}
+    dellist = []
+    for (max_parts, group)in groups:
+        shareinfo = []
+        for idx in range(0,max_parts):
+            shareinfo.append({'wkn': "", 'isin': "", 'nw': "",'nomval':"", 'type': "", 'number': "", "stuck": "1", 'voice': "stimmrechtlos", 'amount': "",
+                     'currency': "", 'info': ""})
+        for key,content in group.items():
+            if key == "Aktien" and " " not in content[:5]:
+                regs["Aktien"] = re.compile(r"(?P<type>(vinkulierte\s|kumulative\s)?[^0-9,\s]*)(?P<rest>.*)")
+            if key == "Aktien" and ("%" in content or "davon" in content[:6]):
+                shareinfo[0]["info"] += content
+                knr = re.compile(r"(Kenn-Nr\.)(?P<wkn>([\s\d]*))|(ISIN\s)(?P<isin>([\S]*)).*").search(content)
+                if knr:
+                    if knr["wkn"]:
+                        shareinfo[0]["wkn"] = knr["wkn"].strip()
+                    if knr["isin"]:
+                        shareinfo[0]["isin"] = knr["isin"].strip()
+                continue
+            if key != "Aktien" and "stimmrechtslos" not in content and "Besondere" not in content:
+                contentparts = content.split(";")
+            else:
+                contentparts = [content]
+            for idx,part in enumerate(contentparts):
+                finding = regs[key].search(part)
+                if finding:
+                    for grpkey, grpval in finding.groupdict().items():
+                        if grpkey == "rest":
+                            knr = re.compile(r"(Kenn-Nr\.)(?P<wkn>([\s\d]*))|(ISIN\s)(?P<isin>([\S]*)).*").search(grpval)
+                            if knr:
+                                if knr["wkn"]:
+                                    shareinfo[idx]["wkn"] = knr["wkn"].strip()
+                                if knr["isin"]:
+                                    shareinfo[idx]["isin"] = knr["isin"].strip()
+                        elif grpval and grpkey not in ["addinfo"]:
+                            if grpval.strip() != "":
+                                if part == "Aktien" and grpkey == "currency" and ("ktien" in grpval or "tück" in grpval or len(grpval) > 5):
+                                    shareinfo[idx]["type"] = grpval
+                                    shareinfo[idx]["currency"] = ""
+                                else:
+                                    if grpkey != "currency" or len(grpval) < 8:
+                                        shareinfo[idx][grpkey] = grpval.strip(" :,=")
+                    if key == "Stückelung" and finding["addinfo"]:
+                        stype  = finding["addinfo"].replace("zu", "je").replace("(","").split("je")[0].replace("o.N.", "").replace("ohne Nennwert", "").strip(" ,")
+                        if shareinfo[idx]["type"] == "" and ("ktien" in stype or "tück" in stype):
+                            shareinfo[idx]["type"] = stype.strip(" :,=")
+                        if shareinfo[idx]["currency"] == "":
+                            currency = finding["addinfo"].strip().split(" ")[-1].replace("je","").replace(":","").replace("o.N.", "").replace("ohne Nennwert", "")
+                            if "ktien" not in currency and "tück" not in currency and "wer" not in currency and len(currency) < 8:
+                                shareinfo[idx]["currency"] = currency.strip(" :,=")
+                else:
+                    shareinfo[idx]["info"] += content
+                if key == "Stückelung" and "Stimmrecht" not in group.keys() and shareinfo[idx]["number"]+shareinfo[idx]["nomval"] == "":
+                    dellist.append(idx)
+        for delitem in sorted(dellist,reverse=True):
+            del shareinfo[delitem]
+        shareinfoarr+=shareinfo
+    return shareinfoarr
+    #for shareinfo in shareinfoarr:
+    #    print(shareinfo)
 
 
 def replace_geminfo(yearinfo, notizinfo, notizstr):
@@ -1767,62 +1940,50 @@ def get_files(filedir):
     return inputfiles
 
 
-def get_uid(new_data, metadata, conn,entryname):
+def get_uid(new_data, metadata, conn):
     """
     Get uid (unique ID) for the given WKN.
     """
-    wkn = ""
-    if new_data['all_wkn_entry'][0][entryname] != "":
-        wkn = new_data['all_wkn_entry'][0][entryname]
-    elif 'börsenbewertung' in new_data:
-        if entryname+"s" in new_data['börsenbewertung']['börsenbewertung1']:
-            if "nummer" in new_data['börsenbewertung']['börsenbewertung1'][entryname+"s"]:
-                wkn = new_data['börsenbewertung']['börsenbewertung1'][entryname+"s"]["nummer"]
-    elif len(new_data['all_wkn_entry']) > 1:
-        if new_data['all_wkn_entry'][1][entryname] != "":
-            wkn = new_data['all_wkn_entry'][1][entryname]
-    else:
-        new_data['reference'] = new_data['unternehmenId']
-        new_data['id'] = ""
-        return 0
+    for awe in new_data["all_wkn_entry"]:
+        for key in ["wkn","isin"]:
+            if awe[key] == "":continue
+            if key == "wkn":
+                s = select([metadata.tables["WKN"]]).where(metadata.tables["WKN"].c.WKN == awe[key]).order_by(
+                    metadata.tables["WKN"].c.unternehmenId.desc())
+            else:
+                s = select([metadata.tables["WKN"]]).where(metadata.tables["WKN"].c.ISIN == awe[key]).order_by(
+                    metadata.tables["WKN"].c.unternehmenId.desc())
+            result = conn.execute(s)
+            try:
+                someid = result.fetchone()[0]
+            except:
+                new_data['reference'] = new_data['unternehmenId']
+                new_data['id'] = ""
+                return 0
+            s = select([metadata.tables['MainRelation']]).where(
+                metadata.tables['MainRelation'].c.referenz == someid)
+            result = conn.execute(s)
+            fone = result.fetchall()
+            if len(fone) > 0:
+                for row in fone:
+                    new_data['reference'] = row[0]
+                    new_data['id'] = row[4]
+                    return 0
+
+            s = select([metadata.tables['MainRelation']]).where(
+                metadata.tables['MainRelation'].c.weiteresAuftreten == someid)
+            result = conn.execute(s)
+            fone = result.fetchall()
+            if len(fone) > 0:
+                for row in fone:
+                    new_data['reference'] = row[0]
+                    new_data['id'] = row[4]
+                    return 0
+    new_data['reference'] = new_data['unternehmenId']
+    new_data['id'] = ""
+    return 0
     #TODO-HINT: Be aware its order is descendent by year to avoid apply new WKN's to old ones which get used in early years!
-    if entryname == "wkn":
-        s = select([metadata.tables["WKN"]]).where(metadata.tables["WKN"].c.WKN == wkn).order_by(
-            metadata.tables["WKN"].c.unternehmenId.desc())
-    else:
-        s = select([metadata.tables["WKN"]]).where(metadata.tables["WKN"].c.ISIN == wkn).order_by(
-            metadata.tables["WKN"].c.unternehmenId.desc())
-    result = conn.execute(s)
-    try:
-        someid = result.fetchone()[0]
-    except:
-        new_data['reference'] = new_data['unternehmenId']
-        new_data['id'] = ""
-        return 0
-    s = select([metadata.tables['MainRelation']]).where(
-        metadata.tables['MainRelation'].c.referenz == someid)
-    result = conn.execute(s)
-    fone = result.fetchall()
-    if len(fone) > 0:
-        for row in fone:
-            new_data['reference'] = row[0]
-            new_data['id'] = row[4]
-            return 0
 
-    s = select([metadata.tables['MainRelation']]).where(
-        metadata.tables['MainRelation'].c.weiteresAuftreten == someid)
-    result = conn.execute(s)
-    fone = result.fetchall()
-    if len(fone) > 0:
-        for row in fone:
-            new_data['reference'] = row[0]
-            new_data['id'] = row[4]
-            return 0
-
-    else:
-        new_data['reference'] = new_data['unternehmenId']
-        new_data['id'] = ""
-        return 0
 
 
 def akf_db_updater(file,dbPath):
@@ -1830,6 +1991,10 @@ def akf_db_updater(file,dbPath):
     Main function of the AKF_SQL_DBTalk!
     """
     file = file.replace("\\", "/")
+    #Condition
+    #if "0704" not in file: return
+
+
     print("Start SQLTalk")
     print(file)
     with open(file, 'r', encoding="utf-8") as f:
@@ -1862,16 +2027,38 @@ def akf_db_updater(file,dbPath):
     #result = conn.execute(s)
     #if len(result.fetchall()) > 0: print("Entry already exists!");conn.close(); return 0;
 
+    new_data["shareinfo"] = stck_stimmrecht(new_data["_fulltext"])
+    #for shareinfo in new_data["shareinfo"]:
+    #    print(shareinfo)
+
+    for si in new_data["shareinfo"]:
+        if si["wkn"]+si["isin"] != "":
+            for awe in new_data["all_wkn_entry"]:
+                if len(awe.keys())<4:
+                    for key in ["type","wkn","isin","nw"]:
+                        if not awe.get(key,False):
+                            awe[key] = ""
+                if si["wkn"] == awe["wkn"] and si["wkn"] != "":
+                    break
+                if si["isin"] == awe["isin"] and si["isin"] != "":
+                    break
+            else:
+                new_data["all_wkn_entry"].append(
+                    {"type":si.get("type",""),
+                    "wkn":si.get("wkn",""),
+                    "isin":si.get("isin",""),
+                    "nw":""}
+                )
+    #return
+
     # Check if a universal ID already exists
-    for entryname in ("wkn","isin"):
-        get_uid(new_data, metadata, conn,entryname)
-        if new_data['id'] != "":break
+    get_uid(new_data, metadata, conn)
 
     # Update all_wkn_entry
-    update_all_wkn(new_data)
+    #update_all_wkn(new_data)
 
     # Get shareinfo for later use
-    get_shareinfo(new_data)
+    #get_shareinfo(new_data)
 
     """
     with open("stimmrecht.txt","a") as stfile:
@@ -1949,5 +2136,6 @@ def main(config):
         files = get_files(folder)
         """"" Start Main """""
         for file in files:
+            #if "0062" not in file:continue
             akf_db_updater(file, dbPath)
         print("The whole folder was finished in {}s".format(round(time.time() - t0all, 3)))

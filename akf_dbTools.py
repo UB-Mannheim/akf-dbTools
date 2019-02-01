@@ -41,9 +41,9 @@ if __name__ == "__main__":
     config.sections()
     config.read('./dblib/config.ini')
     args = get_parser()
-    if args.db == "":
+    if args.db != "":
         config['DEFAULT']['DBPath'] = args.db
-    if args.files == "":
+    if args.files != "":
         config['DEFAULT']['DBPath'] = args.files
     tools = {
         0: json2sqlite.book,
