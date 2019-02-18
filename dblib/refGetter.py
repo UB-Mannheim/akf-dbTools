@@ -60,10 +60,7 @@ def akf_refgetter(config):
             result = conn.execute(s)
             mainrelationresults = result.fetchall()
             for date in mainrelationresults:
-                if isinstance(date[3], int):
-                    dates.append(date[3])
-                else:
-                    dates.append(int(date[3][:4]))
+                dates.append(int(date[1][:4]))
             dates = sorted(list(set(dates)))
             if not dates: continue
             pretty_dates = dates[0]
