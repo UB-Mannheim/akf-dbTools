@@ -30,6 +30,7 @@ def akf_kenngetter(config):
     result = conn.execute(s)
     mainresults = result.fetchall()
     # Get all the years which are bind to the referenz
+    # And updates the kennnummer in the maintable
     for ref in mainresults:
         s = select([metadata.tables['MainRelation']]).where(metadata.tables['MainRelation'].c.referenz == ref[0])
         knn = ""

@@ -53,6 +53,7 @@ def akf_refgetter(config):
     result = conn.execute(s)
     mainresults = result.fetchall()
     # Get all the years which are bind to the referenz
+    # And collect all years and prints them as year span to the "Jahresspanne" column in Main
     for ref in mainresults:
         s = select([metadata.tables['MainRelation']]).where(metadata.tables['MainRelation'].c.referenz == ref[0])
         dates = []

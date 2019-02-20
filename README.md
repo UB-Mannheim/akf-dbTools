@@ -30,28 +30,28 @@ Tool description
 At the moment the program contains four different tools:
 
 #### 0. Json2sqlite for books  
-It parses the json information,<br>
-which are gained from the books,<br>
-to the sqlite database.<br>
-*RefGetter* and *KennGetter*<br>
-are *not* necessary to use afterwards.
+It parses the json information,  
+which are gained from the books,  
+to the sqlite database.  
+*RefGetter and KennGetter  
+are recommended to use afterwards.*
 
 #### 1. Json2sqlite for cds  
-It parses the json information,<br>
-which are gained from the cds,<br>
-to the sqlite database.<br>
-*RefGetter* and *KennGetter*<br>
-are necessary to use afterwards.
+It parses the json information,  
+which are gained from the cds,  
+to the sqlite database.  
+*RefGetter and KennGetter  
+are recommended to use afterwards.*
 
 #### 2. RefGetter  
 It gets the 'referenz' values, reads all years which  
-are bind to it and pretty prints the data into the   
-table 'Main' in the column 'Jahrespanne'.
+are bind to it and pretty prints the data as year span 
+into the `Main` table in the `Jahrespanne` column.
 
 #### 3. KennGetter 
 It gets the 'referenz' values, reads all WKN/ISIN which    
-are bind to it and prints the data into the   
-table 'Main' in the column 'Kennnummer'. 
+are bind to it and prints the unique data into the   
+`Main` table in the `Kennnummer` column. 
 
 
 

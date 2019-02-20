@@ -27,7 +27,7 @@ def get_parser():
                                                  "Get all the WKN/ISIN of the same referenz and write it to 'Kennnummer'.\n"))
     parser.add_argument("--db", type=str,default="",help='Input db directory or type it into the config file.')
     parser.add_argument("--files", type=str, default="", help='Input input file directory or type it into the config file.')
-    parser.add_argument("--tool", type=str, choices=[0, 1, 2, 3], default=1,
+    parser.add_argument("--tool", type=str, choices=[0, 1, 2, 3], default=2,
                         help='Choose the tool(1:json2sqlite for books, 1:json2sqlite for cds,3:ref-Getter, 3:kennGetter), default: %(default)s')
     args = parser.parse_args()
     return args
