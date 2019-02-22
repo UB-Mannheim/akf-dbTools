@@ -1,4 +1,4 @@
-![akf-dbTools](doc/img/Tools.png)
+![akf-dbTools](doc/img/Tools.png "akf-dbTools")
 ========================
 Overview
 ------------
@@ -55,7 +55,7 @@ It gets the 'referenz' values, reads all WKN/ISIN which
 are bind to it and prints the unique data into the   
 `Main` table in the `Kennnummer` column. 
 
-[akf-link]:  https://github.com/JKamlah/Aktienfuehrer-Datenarchiv-Tools
+[akf-link]:  https://github.com/UB-Mannheim/Aktienfuehrer-Datenarchiv-Tools "Aktienfuehrer-Datenarchiv-Tools"
 
 
 
