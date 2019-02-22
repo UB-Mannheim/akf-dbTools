@@ -3,6 +3,8 @@
 Overview
 ------------
 The **akf-dbTools** can modify or update certain parts of the database.
+It is part of the [Aktienführer-Datenarchiv work process][akf-link] and 
+customized to the needs of the project.
 
 Building instructions
 --------------------
