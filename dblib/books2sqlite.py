@@ -1820,10 +1820,10 @@ def main(config=None):
     output_analysis = OutputAnalysis(config)
 
     # For later use to iterate over all dir
-    if config['DEFAULT']['SingleOn'] == "True":
-        folders = [config['DEFAULT']['SinglePath']]
+    if config['BOOKS']['SingleOn'] == "True":
+        folders = [config['BOOKS']['SinglePath']]
     else:
-        my_path = config['DEFAULT']['AllPath'] + "/"
+        my_path = config['BOOKS']['AllPath'] + "/"
         # folders = glob.glob(my_path) # old way of obtaining all folders
         # define the path (with pathlib so absolute paths also work in unix)
         folders = sorted(glob.glob(my_path))
@@ -1833,8 +1833,8 @@ def main(config=None):
     t0all = time.time()
 
     # optional delete of content
-    #if config['DEFAULT']['DeleteAllContentFirst'] != "False":
-    #delete_all_table_contents(dbPath)
+    if config['BOOKS']['DeleteAllContentFirst'] != "False":
+        delete_all_table_contents(dbPath)
 
     accumulated_results = {}
 
@@ -1842,7 +1842,7 @@ def main(config=None):
         #if "_1977_" in folder or "_1976_" in folder:
         #    continue
         """"" Read files """""
-        if config['DEFAULT']['SingleOn'] == "False":
+        if config['BOOKS']['SingleOn'] == "False":
             files = get_files(folder)
         else:
             files = folders
