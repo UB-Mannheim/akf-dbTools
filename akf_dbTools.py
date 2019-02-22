@@ -4,7 +4,7 @@
 # Program:  **akf-dbTools**
 # Info:     **Python 3.6**
 # Author:   **Jan Kamlah**
-# Date:     **14.11.2017**
+# Date:     **14.02.2019**
 
 ######### IMPORT ############
 import dblib.kennGetter as kennGetter

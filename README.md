@@ -2,9 +2,9 @@
 ========================
 Overview
 ------------
-The **akf-dbTools** can modify or update certain parts of the database.
+**akf-dbTools** can modify or update certain parts of the database.
 It is part of the [Aktienführer-Datenarchiv work process][akf-link] and 
-customized to the needs of the project.
+customized to the needs of this project.
 
 Building instructions
 --------------------
@@ -54,6 +54,8 @@ into the `Main` table in the `Jahrespanne` column.
 It gets the 'referenz' values, reads all WKN/ISIN which    
 are bind to it and prints the unique data into the   
 `Main` table in the `Kennnummer` column. 
+
+[akf-link]:  https://github.com/JKamlah/Aktienfuehrer-Datenarchiv-Tools
 
 
 
