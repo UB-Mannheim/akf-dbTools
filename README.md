@@ -53,7 +53,19 @@ into the `Main` table in the `Jahrespanne` column.
 #### 3. KennGetter 
 It gets the 'referenz' values, reads all WKN/ISIN which    
 are bind to it and prints the unique data into the   
-`Main` table in the `Kennnummer` column. 
+`Main` table in the `Kennnummer` column.
+
+Copyright and License
+--------
+
+Copyright (c) 2017 Universitätsbibliothek Mannheim
+
+Author: 
+ * [Jan Kamlah](https://github.com/jkamlah)
+
+**db-Tools** is Free Software. You may use it under the terms of the Apache 2.0 License.
+See [LICENSE](./LICENSE) for details.
+
 
 [akf-link]:  https://github.com/UB-Mannheim/Aktienfuehrer-Datenarchiv-Tools "Aktienfuehrer-Datenarchiv-Tools"
 
